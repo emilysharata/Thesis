@@ -16,6 +16,7 @@ from scipy import spatial
 from googletrans import Translator
 
 from easynmt import EasyNMT
+from requests.exceptions import ReadTimeout
 
 
 
@@ -37,13 +38,13 @@ def outputJsonData(jsonData) :
     print(jsonData_as_string+"\n")
     
 
-def addTranslation(alljobs, outputFile="", method="google", maxWrite=-1):
+def addTranslation(alljobs, outputFile, method="google", fallback=True, maxWrite=-1):
     if method == "google":
         from googletrans import Translator
-        model = Translator()
-    else:
+        modelGoogle = Translator()
+    if method == "easynmt" or fallback:
         from easynmt import EasyNMT
-        model = EasyNMT('opus-mt')
+        modelNMT = EasyNMT('opus-mt')
     
     for i, entry in enumerate(alljobs[:maxWrite]) :
         entry["CLEANED_JOBS"] = textCleaner(entry["CONTENT"])
@@ -59,16 +60,19 @@ def addTranslation(alljobs, outputFile="", method="google", maxWrite=-1):
         for chunk in chunks:
             if method == "google":
                 try:
-                    translate = model.translate(chunk, dest="en")
+                    translate = modelGoogle.translate(chunk, dest="en")
                     translate = translate.text
-                except (TypeError, AttributeError) as e:
+                except (TypeError, AttributeError, IndexError, ReadTimeout) as e:
                     print("Failed to translate entry", i)
                     print("Error was:", e)
-                    print("Leaving untranslated!")
-                    translate = entry["CLEANED_JOBS"]
-                    break
+                    if fallback:
+                        print("Trying instead with EasyNMT")
+                        translate = modelNMT.translate(chunk, target_lang="en")
+                    else:
+                        print("Leaving untranslated!")
+                        translate = entry["CLEANED_JOBS"]
             else:
-                translate = model.translate(chunk, target_lang="en")
+                translate = modelNMT.translate(chunk, target_lang="en")
             entry["TRANSLATED_JOBS"] += translate
         entry["TOKENIZED_JOBS"] = sentenceSplitter(entry["TRANSLATED_JOBS"])
     
@@ -81,11 +85,11 @@ def addTranslation(alljobs, outputFile="", method="google", maxWrite=-1):
 #------------------------------- Main
 
 # Run this if you want to do the translation, otherwise just use the translation directly
-def writeTranslatedJobs(maxWrite):
+def writeTranslatedJobs(maxWrite, method="google", fallback=True):
     input = "Data/output_V1.1.json"
-    alljobs = readJsonFile("Data/output_V1.1.json")
-    model = EasyNMT('opus-mt')
-    alljobs = addTranslation(alljobs, input.replace(".json", ".translate.json"), maxWrite=maxWrite)
+    alljobs = readJsonFile(input)
+    app = ".translate.json" if maxWrite < 0 else (".%i.translate.json" % maxWrite)
+    alljobs = addTranslation(alljobs, input.replace(".json", app), method=method, fallback=fallback, maxWrite=maxWrite)
 
 def main() :
 

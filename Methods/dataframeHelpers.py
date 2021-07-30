@@ -1,5 +1,4 @@
 import tokenizers
-from easynmt import EasyNMT
 from . import JobOffers
 import numpy as np
 import pandas as pd
@@ -13,12 +12,6 @@ def matchToJob(row, jobBoundaries, allEmbeddings):
     last = jobBoundaries[row.name]
     return allEmbeddings[first:last]
 
-# Run this if you want to do the translation, otherwise just use the translation directly
-def writeTranslatedJobs():
-    alljobs = JobOffers.readJsonFile("Data/output_V1.1.json")
-    model = EasyNMT('opus-mt')
-    alljobs = JobOffers.addTranslation(alljobs, "output_V1.1.translate.json", maxWrite=100)
-
 def buildActivitiesDF():
     activitiesDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/Activities.csv"), error_bad_lines=False)
     activitiesDf = activitiesDf.rename(columns={'O*Net\nMétiers verts' : "ACTIVITY_ID", 'O"Net: Détails des activités pour les métiers verts' : "ACTIVITY_CONTENT"})
@@ -26,17 +19,55 @@ def buildActivitiesDF():
     slimmedActsDf.loc[slimmedActsDf["ACTIVITY_ID"].isna(), 'ACTIVITY_ID'] = slimmedActsDf[slimmedActsDf["ACTIVITY_ID"].isna()].index
     return slimmedActsDf
 
-def buildJobsDF():
-    alljobs = JobOffers.readJsonFile("Data/output_V1.1.translate.json")
-    jobsDf = pd.DataFrame(np.array(([x["ID"] for x in alljobs], [x["ISCO"] for x in alljobs], [x["TOKENIZED_JOBS"] for x in alljobs] ), dtype='object').T, columns = ["JOB_ID", "ISCO", "JOB_CONTENT"])
+def buildActivitiesDFV26():
+    slimmedActsDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/ActivitiesV26.csv"), sep=";", error_bad_lines=False)
+    return slimmedActsDf
+
+
+def getEmbeddings(actsDf, jobsDf):
     jobsSentences = np.array([y for x in jobsDf["JOB_CONTENT"] for y in x])
-    actsDf = buildActivitiesDF()
     activitiesSentences = actsDf["ACTIVITY_CONTENT"].to_numpy()
     allSentences = np.concatenate((jobsSentences, activitiesSentences))
     allEmbeddings = embed(allSentences)
+    return allEmbeddings
+
+def getEmbeddingsWSkills(skillsDf, jobsDf):
+    jobsSentences = np.array([y for x in jobsDf["JOB_CONTENT"] for y in x])
+    skillsSentences = skillsDf["SKILL_CONTENT"].to_numpy()
+    allSentences = np.concatenate((jobsSentences, skillsSentences))
+    allEmbeddings = embed(allSentences)
+    return allEmbeddings
+
+
+def addEmbeddingsToJobs(jobsDf, embeddings):
     jobBoundaries = np.cumsum([len(x) for x in jobsDf["JOB_CONTENT"]])
-    jobsDf["JOB_SCORES"] = jobsDf.apply(matchToJob, args=[jobBoundaries, allEmbeddings], axis=1)
+    jobsDf["JOB_SCORES"] = jobsDf.apply(matchToJob, args=[jobBoundaries, embeddings], axis=1)
     return jobsDf
+
+def addEmbeddingsToActivities(actsDf, embeddings):
+    actsDf["ACTIVITY_SCORES"] = embeddings[-1*(len(actsDf)):]
+    return actsDf
+
+def addEmbeddingsToSkills(skillsDf, embeddings):
+    skillsDf["SKILL_SCORES"] = embeddings[-1*(len(skillsDf)):]
+    return skillsDf
+
+
+def buildJobsDF():
+    alljobs = JobOffers.readJsonFile("Data/output_V1.1.translate.json")
+    jobsDf = pd.DataFrame(np.array(([x["ID"] for x in alljobs], 
+                        [x["ISCO"] for x in alljobs], 
+                        [x["TOKENIZED_JOBS"] for x in alljobs],
+                        [x["CONTENT"] for x in alljobs]), 
+                    dtype='object').T, 
+                    columns = ["JOB_ID", "ISCO", "JOB_CONTENT", "ORIGINAL_CONTENT"])
+    actsDf = buildActivitiesDF()
+    return jobsDf
+
+def buildSkillsDF():
+    skillsDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/SkillsV26.csv"), sep=";", error_bad_lines=False)
+    return skillsDf
+
 
 model = hub.load("/Users/klong/Desktop/Thesis/universal-sentence-encoder_4/")
 def embed(input):
