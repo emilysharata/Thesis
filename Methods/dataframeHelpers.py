@@ -53,8 +53,8 @@ def addEmbeddingsToSkills(skillsDf, embeddings):
     return skillsDf
 
 
-def buildJobsDF():
-    alljobs = JobOffers.readJsonFile("Data/output_V1.1.translate.json")
+def buildJobsDF(infile):
+    alljobs = JobOffers.readJsonFile(infile)
     jobsDf = pd.DataFrame(np.array(([x["ID"] for x in alljobs], 
                         [x["ISCO"] for x in alljobs], 
                         [x["TOKENIZED_JOBS"] for x in alljobs],

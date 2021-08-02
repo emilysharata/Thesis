@@ -91,6 +91,35 @@ def writeTranslatedJobs(maxWrite, method="google", fallback=True):
     app = ".translate.json" if maxWrite < 0 else (".%i.translate.json" % maxWrite)
     alljobs = addTranslation(alljobs, input.replace(".json", app), method=method, fallback=fallback, maxWrite=maxWrite)
 
+
+
+def translateParagraph(chunk, method, fallback = True) :
+    if method == "google":
+        from googletrans import Translator
+        modelGoogle = Translator()
+    if method == "easynmt" or fallback:
+        from easynmt import EasyNMT
+        modelNMT = EasyNMT('opus-mt')
+
+    if method == "google":
+        try:
+            translate = modelGoogle.translate(chunk, dest="en")
+            translate = translate.text
+        except (TypeError, AttributeError, IndexError, ReadTimeout) as e:
+            print("Failed to translate entry")
+            print("Error was:", e)
+            if fallback:
+                print("Trying instead with EasyNMT")
+                translate = modelNMT.translate(chunk, target_lang="en")
+            else:
+                print("Leaving untranslated!")
+                translate = chunk
+    else:
+        translate = modelNMT.translate(chunk, target_lang="en")
+    return translate 
+
+
+
 def main() :
 
     print("\n-------------------------------------------- Reading JSON files for the Joboffers Dataset --------------------------------------------\n")
