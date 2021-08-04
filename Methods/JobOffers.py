@@ -11,7 +11,6 @@ from bs4 import BeautifulSoup
 import re 
 from easynmt import EasyNMT
 
-from sent2vec.vectorizer import Vectorizer
 from scipy import spatial
 from googletrans import Translator
 

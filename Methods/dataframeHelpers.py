@@ -6,6 +6,7 @@ import tensorflow_hub as hub
 import os
 import logging 
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
+basefolder = os.path.expanduser("~/Desktop/Thesis")
 
 def matchToJob(row, jobBoundaries, allEmbeddings):
     first = jobBoundaries[row.name-1] if row.name != 0 else 0
@@ -13,14 +14,14 @@ def matchToJob(row, jobBoundaries, allEmbeddings):
     return allEmbeddings[first:last]
 
 def buildActivitiesDF():
-    activitiesDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/Activities.csv"), error_bad_lines=False)
+    activitiesDf = pd.read_csv(os.path.expanduser(f"{basefolder}/Data/Activities.csv"), error_bad_lines=False)
     activitiesDf = activitiesDf.rename(columns={'O*Net\nMétiers verts' : "ACTIVITY_ID", 'O"Net: Détails des activités pour les métiers verts' : "ACTIVITY_CONTENT"})
     slimmedActsDf = activitiesDf[["ACTIVITY_ID", "ACTIVITY_CONTENT"]][~activitiesDf["ACTIVITY_CONTENT"].isna()]
     slimmedActsDf.loc[slimmedActsDf["ACTIVITY_ID"].isna(), 'ACTIVITY_ID'] = slimmedActsDf[slimmedActsDf["ACTIVITY_ID"].isna()].index
     return slimmedActsDf
 
 def buildActivitiesDFV26():
-    slimmedActsDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/ActivitiesV26.csv"), sep=";", error_bad_lines=False)
+    slimmedActsDf = pd.read_csv(os.path.expanduser(f"{basefolder}/Data/ActivitiesV26.csv"), sep=";", error_bad_lines=False)
     return slimmedActsDf
 
 
@@ -58,17 +59,20 @@ def buildJobsDF(infile):
     jobsDf = pd.DataFrame(np.array(([x["ID"] for x in alljobs], 
                         [x["ISCO"] for x in alljobs], 
                         [x["TOKENIZED_JOBS"] for x in alljobs],
-                        [x["CONTENT"] for x in alljobs]), 
+                        #[x["CONTENT"].split(".") for x in alljobs], 
+                        [x["CONTENT"] for x in alljobs], 
+                        [np.array(x["KANTONE"].split(";")) for x in alljobs], 
+                        [x["FIRMENGROESSE"] for x in alljobs]
+                        ), 
                     dtype='object').T, 
-                    columns = ["JOB_ID", "ISCO", "JOB_CONTENT", "ORIGINAL_CONTENT"])
-    actsDf = buildActivitiesDF()
+                    columns = ["JOB_ID", "ISCO", "JOB_CONTENT", "ORIGINAL_CONTENT", "CANTON", "COMPANY_SIZE"])
     return jobsDf
 
 def buildSkillsDF():
-    skillsDf = pd.read_csv(os.path.expanduser("~/Desktop/Thesis/Data/SkillsV26.csv"), sep=";", error_bad_lines=False)
+    skillsDf = pd.read_csv(os.path.expanduser(f"{basefolder}/Data/SkillsV26.csv"), sep=";", error_bad_lines=False)
     return skillsDf
 
 
-model = hub.load("/Users/klong/Desktop/Thesis/universal-sentence-encoder_4/")
+model = hub.load(f"{basefolder}/universal-sentence-encoder_4/")
 def embed(input):
   return model(input)
