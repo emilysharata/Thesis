@@ -54,25 +54,61 @@ def addEmbeddingsToSkills(skillsDf, embeddings):
     return skillsDf
 
 
-def buildJobsDF(infile):
+# Normally tokenzie will be done in the translate function
+def buildJobsDF(infile, tokenize=False):
     alljobs = JobOffers.readJsonFile(infile)
+    tokenized = []
+    if not tokenize:
+        tokenized = [x["TOKENIZED_JOBS"] for x in alljobs]
+    else:
+        for i,jo in enumerate(alljobs):
+            try:
+                cleaned = JobOffers.textCleaner(jo["CONTENT"])
+            except:
+                print("Failed for job", i)
+                cleaned = jo["CONTENT"]
+            tokenized.append(JobOffers.sentenceSplitter(cleaned))
+
     jobsDf = pd.DataFrame(np.array(([x["ID"] for x in alljobs], 
                         [x["ISCO"] for x in alljobs], 
-                        [x["TOKENIZED_JOBS"] for x in alljobs],
-                        #[x["CONTENT"].split(".") for x in alljobs], 
+                        tokenized,
                         [x["CONTENT"] for x in alljobs], 
+                        [x["TRANSLATED_JOBS" if "TRANSLATED_JOBS" in x else "CONTENT"] for x in alljobs], 
                         [np.array(x["KANTONE"].split(";")) for x in alljobs], 
                         [x["FIRMENGROESSE"] for x in alljobs]
                         ), 
                     dtype='object').T, 
-                    columns = ["JOB_ID", "ISCO", "JOB_CONTENT", "ORIGINAL_CONTENT", "CANTON", "COMPANY_SIZE"])
+                    columns = ["JOB_ID", "ISCO", "JOB_CONTENT", "ORIGINAL_CONTENT", "TRANSLATED_JOBS", "CANTON", "COMPANY_SIZE"])
     return jobsDf
 
 def buildSkillsDF():
     skillsDf = pd.read_csv(os.path.expanduser(f"{basefolder}/Data/SkillsV26.csv"), sep=";", error_bad_lines=False)
     return skillsDf
 
+def averageNSentences(row, n):
+    return np.average(np.sort(row["DISTANCES"])[:n])
+
+def bestMatchReturn(row, results, df, label, match, column_name) :
+    bestMatch = results[results["JOB_ID"] == row["JOB_ID"]]
+    minEntry = bestMatch[match].idxmin()
+    rowMatch = bestMatch.loc[minEntry,:]  
+    #return actsDf[actsDf["ACTIVITY_ID"] == rowMatch["ACTIVITY_ID"]]["ACTIVITY_ID"]
+    content = df[df[label] == rowMatch[label]]                  
+    return content[column_name].iloc[0]  
+
+def bestNMatchReturn(row, results, df, label, match, column_name, num, cutoff=2.) :
+    jobMatch = results[results["JOB_ID"] == row["JOB_ID"]]
+    # Find last match < cutoff
+    sortedArgs = jobMatch[match].argsort()
+    limit = np.count_nonzero(jobMatch[match] < cutoff)
+    minEntries = sortedArgs[:min(num, limit)]
+    rowMatch = jobMatch.iloc[minEntries,:]
+    content = [df[df[label] == x][column_name].iloc[0] for x in rowMatch[label]]
+    return content
+
 
 model = hub.load(f"{basefolder}/universal-sentence-encoder_4/")
 def embed(input):
   return model(input)
+
+  
