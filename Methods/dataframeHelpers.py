@@ -7,7 +7,9 @@ import os
 import logging 
 from scipy import spatial
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
-basefolder = os.path.expanduser("~/Desktop/Thesis/")
+basefolder = os.path.expanduser("~/EmilyThesis/Thesis")
+if not os.path.isdir(basefolder):
+    basefolder = os.path.expanduser("~/Desktop/Thesis")
 
 def matchToJob(row, jobBoundaries, allEmbeddings):
     first = jobBoundaries[row.name-1] if row.name != 0 else 0
