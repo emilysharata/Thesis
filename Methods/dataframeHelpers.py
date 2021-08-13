@@ -5,8 +5,9 @@ import pandas as pd
 import tensorflow_hub as hub
 import os
 import logging 
+from scipy import spatial
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
-basefolder = os.path.expanduser("~/Desktop/Thesis")
+basefolder = os.path.expanduser("~/Desktop/Thesis/")
 
 def matchToJob(row, jobBoundaries, allEmbeddings):
     first = jobBoundaries[row.name-1] if row.name != 0 else 0
@@ -96,6 +97,12 @@ def bestMatchReturn(row, results, df, label, match, column_name) :
     content = df[df[label] == rowMatch[label]]                  
     return content[column_name].iloc[0]  
 
+def bestMatchAttributeReturn(row, results, match, label) :
+    bestMatch = results[results["JOB_ID"] == row["JOB_ID"]]
+    minEntry = bestMatch[match].idxmin()
+    rowMatch = bestMatch.loc[minEntry,:]  
+    return rowMatch[label]
+
 def bestNMatchReturn(row, results, df, label, match, column_name, num, cutoff=2.) :
     jobMatch = results[results["JOB_ID"] == row["JOB_ID"]]
     # Find last match < cutoff
@@ -106,6 +113,20 @@ def bestNMatchReturn(row, results, df, label, match, column_name, num, cutoff=2.
     content = [df[df[label] == x][column_name].iloc[0] for x in rowMatch[label]]
     return content
 
+def minDistanceFinder(row) :
+    return min(row["DISTANCES"])
+
+def minDistanceSentence(row, jobs) : 
+    minDistanceIdx = np.argmin(row["DISTANCES"])
+    df = jobs[jobs["JOB_ID"] == row["JOB_ID"]]
+    if df.empty:
+        return ""
+    content = df.iloc[0]["JOB_CONTENT"]
+    return content[minDistanceIdx]
+
+def distCalc(row, label):
+    return spatial.distance.cdist(np.expand_dims(row[label], axis=1).T,
+                                  np.array(row["JOB_SCORES"]), metric="cosine")[0]
 
 model = hub.load(f"{basefolder}/universal-sentence-encoder_4/")
 def embed(input):
