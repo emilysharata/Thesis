@@ -58,8 +58,11 @@ def addEmbeddingsToSkills(skillsDf, embeddings):
 
 
 # Normally tokenzie will be done in the translate function
-def buildJobsDF(infile, tokenize=False):
-    alljobs = JobOffers.readJsonFile(infile)
+def buildJobsDF(infiles, tokenize=False):
+    alljobs = []
+    for infile in infiles:
+        alljobs.extend(JobOffers.readJsonFile(infile))
+
     tokenized = []
     if not tokenize:
         tokenized = [x["TOKENIZED_JOBS"] for x in alljobs]

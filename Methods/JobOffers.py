@@ -37,7 +37,7 @@ def outputJsonData(jsonData) :
     print(jsonData_as_string+"\n")
     
 
-def addTranslation(alljobs, outputFile, method="google", fallback=True, maxWrite=-1, index=-1):
+def addTranslation(alljobs, outputFile, method="google", fallback=True, maxWrite=-1):
     if method == "google":
         from googletrans import Translator
         modelGoogle = Translator()
@@ -84,21 +84,12 @@ def addTranslation(alljobs, outputFile, method="google", fallback=True, maxWrite
 #------------------------------- Main
 
 # Run this if you want to do the translation, otherwise just use the translation directly
-def writeTranslatedJobs(maxWrite, method="google", fallback=True, firstEntry=0, writeEvery=1000):
+def writeTranslatedJobs(maxWrite, method="google", fallback=True):
     input = "Data/output_V1.1.json"
     alljobs = readJsonFile(input)
     app = ".translate.json" if maxWrite < 0 else (".%i.translate.json" % maxWrite)
-    if maxWrite < 0: 
-        maxWrite = len(alljobs)
+    alljobs = addTranslation(alljobs, input.replace(".json", app), method=method, fallback=fallback, maxWrite=maxWrite)
 
-    translated = []
-    for i in range(firstEntry, min(maxWrite, len(alljobs)), writeEvery):
-        chunk = alljobs[i:i+min(writeEvery, len(alljobs)-i)]
-        print(i, len(chunk))
-        translated += addTranslation(chunk, input.replace(".json", "_%i%s"%(i,app)), method=method, fallback=fallback, maxWrite=maxWrite)
-
-    with open(outputFile, "w") as f:
-        json.dump(alljobs[:maxWrite], f)
 
 
 def translateParagraph(chunk, method, fallback = True) :
